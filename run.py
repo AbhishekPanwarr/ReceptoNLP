@@ -25,7 +25,6 @@ persona_json = [{
         }
       ]
 
-# ... [previous code remains unchanged]
 matched_personas = []
 for persona in persona_json:
     search_persona = enrich_profile_json(llm, persona)
