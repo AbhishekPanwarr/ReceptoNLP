@@ -73,14 +73,15 @@ class LinkedInProfileFinder:
 
         # Build search query
         query_parts = [name]
-        if company: query_parts.append(f'"{company}"') # Exact phrase for company
-        if title: query_parts.append(f'"{title}"')     # Exact phrase for title
+        query_parts = [name]
+        if company: query_parts.append(f'"{company}"')
+        if title: query_parts.append(f'"{title}"')
         if location: query_parts.append(location)
-        if timezone: query_parts.append(timezone) # Timezone might be less effective search term
+        if timezone:
+            query_parts.append(f'"{timezone}"')  # Exact phrase
+            query_parts.append(f'(timezone OR "timezone" OR time zone OR "{timezone}")')  # Emphasize context
 
-        # Always restrict to LinkedIn profiles
         query_parts.append("site:linkedin.com/")
-
         query = " ".join(query_parts)
         # Ensure this print matches the original script's output if needed
         if 'print(f"Constructed Search Query: {query}")' in open('paste.txt').read():
