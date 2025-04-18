@@ -36,12 +36,13 @@ def search_profiles_from_json(profile_json: Dict[str, Any], max_results: int = 1
     if not name:
         print("Error: Name is required for searching")
         return []
-    timezone = profile_json.get('timezone') or None
+    og_keys = profile_json.get('original_keys') or None
+    timezone = og_keys['timezone']
 
     company_names = profile_json.get('company_names', [])
     if company_names:
         company_names = company_names[0]
-    else: company_names = ""
+    else: company_names = None
     
     # Extract potential title/role from intro or other fields
     intro = profile_json.get('intro', '')
@@ -69,7 +70,6 @@ def search_profiles_from_json(profile_json: Dict[str, Any], max_results: int = 1
     print(f"Search parameters:")
     print(f"  Name: {name}")
     print(f"  Company: {company_names}")
-    print(f"  Timzone: {timezone}")
     print(f"  Max Results: {max_results}")
     
     # Perform the search
@@ -81,7 +81,7 @@ def search_profiles_from_json(profile_json: Dict[str, Any], max_results: int = 1
     
     if results:
         print(f"\nFound {len(results)} LinkedIn profile URLs:")
-        for i, url in enumerate(results, 1):
+        for i, url in enumerate(results, 2):
             print(f"  {i}. {url}")
     else:
         print("No LinkedIn profile URLs found matching the criteria.")

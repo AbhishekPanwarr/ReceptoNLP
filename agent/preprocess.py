@@ -62,8 +62,8 @@ def update_intro_with_search(profile_json: dict) -> dict:
         result = tavily.run(query, num_results=1)
         if result and isinstance(result, list) and result[0].get("content"):
             results_text += result[0]["content"] + " "
-    
-    current_intro = profile_json.get("intro", "")
+    og_keys = profile_json.get("original_keys", "")
+    current_intro = og_keys['intro']
     final_intro = f"{current_intro.strip()} {results_text.strip()}".strip()
     
     # Return updated profile JSON
