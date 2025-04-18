@@ -144,7 +144,7 @@ def llm_validation(profile1, profile2, llm_client: AzureChatOpenAI):
     validation_prompt = f"""
     You are an expert at verifying if two professional profiles belong to the same person.
     Analyze the following profiles and give a score between 0 and 1 (1=definitely same, 0=definitely different).
-    Consider job history, skills, education, and social links.
+    Consider job history, skills, education, and social links and most importantly timezone of the person.
     Return JSON: {{"score": float, "reason": string}}
 
     Profile 1:
