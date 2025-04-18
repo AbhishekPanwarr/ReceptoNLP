@@ -1,5 +1,13 @@
-#ReceptoNLP High Prep PS
+# ReceptoNLP High Prep PS
 
+## Problem:
+Identifying LinkedIn profiles from incomplete or partial persona data is challenging due to limited information and noisy search results. Accurately matching and verifying individuals requires robust techniques to compare and validate profiles across multiple, often sparse, data fields
+
+
+## Our Approach:
+We developed a multi-stage pipeline that enriches personas using search APIs, scraping, and entity expansion, then verifies LinkedIn profiles through NLP, computer vision, and LLM-based validation. A weighted, thresholded confidence score ensures robust, interpretable matching even with missing or noisy data
+
+## Requisites
 - **Python 3.8+**
 - **Google Custom Search API** (for LinkedIn profile discovery)
 - **Azure OpenAI API** (for LLM-based enrichment and validation)
@@ -26,8 +34,6 @@ cd
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
-[Reference][5][10]
-
 ---
 
 ### 3. Create and Configure the `.env` File
@@ -43,11 +49,6 @@ AZURE_OPENAI_API_VERSION=
 GOGGLE_JSON_KEY=
 SEARCH_ENGINE_ID=
 ```
-[Reference][4][6]
-
-**Important:**   
-- Add `.env` to your `.gitignore`.
-
 ---
 
 ### 4. Install Dependencies
@@ -55,8 +56,6 @@ SEARCH_ENGINE_ID=
 ```bash
 pip install -r requirements.txt
 ```
-[Reference][10]
-
 ---
 
 ### 5. Add Your Persona JSON List
@@ -107,16 +106,6 @@ Confidence: 69.5200
 ```
 
 The final output will be a list of the highest matching LinkedIn profile URLs for your personas.
-
----
-
-## Security Notes
-
-- **API Keys:** Store all sensitive keys in the `.env` file. Never hardcode or share them.
-- **.env File:** Always add `.env` to `.gitignore` to prevent accidental exposure.
-- **Key Rotation:** Periodically update your API keys for security.
-
----
 
 ## License
 
