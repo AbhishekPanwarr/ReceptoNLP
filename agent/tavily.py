@@ -7,7 +7,7 @@ load_dotenv()
 tavily_api_key = os.getenv("TAVILY_API_KEY")
 
 
-def search_twitter_profile(query: str, max_results: int = 3):
+def search_tavily_query(query: str, max_results: int = 3):
     """
     Searches using TavilySearchResults tool with a given URL or query.
 
@@ -21,3 +21,5 @@ def search_twitter_profile(query: str, max_results: int = 3):
     search = TavilySearchResults(max_results=max_results)
     search_results = search.invoke(query)
     return search_results
+
+print(search_tavily_query("Who is Xe according to https://christine.website?"))
