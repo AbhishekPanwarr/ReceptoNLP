@@ -16,6 +16,8 @@ transformers
 scikit-learn
 numpy
 Pillow
+flask
+jsonify
 torchvision
 python-dotenv==1.0.0
 openai==1.12.0
