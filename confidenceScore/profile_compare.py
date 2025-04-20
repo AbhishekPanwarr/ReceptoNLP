@@ -5,7 +5,9 @@ from PIL import Image, UnidentifiedImageError
 import requests
 from io import BytesIO
 import json
-
+import spacy
+import re
+import numpy as np
 from torchvision import models, transforms
 import torch
 import torch.nn as nn
@@ -13,7 +15,7 @@ import json
 from sentence_transformers import SentenceTransformer
 from langchain_openai import AzureChatOpenAI  # Add this import
 
-
+nlp = spacy.load("en_core_web_sm")
 # ----------------- IMAGE SIMILARITY -----------------
 
 import requests
@@ -133,8 +135,8 @@ class VGG16ImageComparer:
 
 # ----------------- TEXT EMBEDDING SIMILARITY -----------------
 def persona_similarity(profile1, profile2, embedder):
-    text1 = profile1.get("original_keys").get("intro")
-    text2 = profile2.get("summary", "")
+    text1 = preprocess_text(profile1.get("original_keys").get("intro"))
+    text2 = preprocess_text(profile2.get("summary", ""))
     
     if not text1 or not text2: 
         return 0.0
@@ -193,7 +195,26 @@ def llm_validation(profile1, profile2, llm_client: AzureChatOpenAI):
         print(f"LLM validation failed: {str(e)[:200]}")
         return 0.0, "Service error"
 
+def preprocess_text(text):
+    if not text:
+        return ""
+    
+    # Step 1: Remove extra whitespaces
+    text = ' '.join(text.split())
+    
+    # Step 2: Remove non-alphabetic characters (keep only words and spaces)
+    text = re.sub(r"[^a-zA-Z\s]", "", text)
+    
+    # Step 3: Convert text to lowercase
+    text = text.lower()
+    
+    # Step 4: Process the text with spaCy for tokenization, lemmatization, and stopword removal
+    doc = nlp(text)
 
+    # Step 5: Lemmatize and remove stopwords
+    processed_text = " ".join([token.lemma_ for token in doc if not token.is_stop and not token.is_punct])
+
+    return processed_text
 
 def get_embedding(text: str) -> np.ndarray:
     """
@@ -212,51 +233,48 @@ def get_embedding(text: str) -> np.ndarray:
 
 # ----------------- MAIN COMPARISON FUNCTION -----------------
 def confidence_score(profile1, profile2, embedder, image_comparer, llm_validation, 
-                     llm_client: AzureChatOpenAI):
-    """Calculate confidence score with adaptive weighting when image similarity is too low"""
-
+                     llm_client: AzureChatOpenAI):    
     # 1. Calculate raw scores
     og_keys = profile1.get("original_keys")
     img_score = image_comparer.similarity(og_keys.get("image"), profile2.get("image"))
     persona_score = persona_similarity(profile1, profile2, embedder)
     llm_score, llm_reason = llm_validation(profile1, profile2, llm_client)
 
-    # 2. Fixed component weights
-    original_weights = {'image': 0.6, 'persona': 0.25, 'llm': 0.15}
-
-    # 3. Adjust weights if image similarity is too low
-    if img_score < 5e-4:
-        print(f"Image similarity too low ({img_score:.4f}) — redistributing weight.")
-        persona_share = original_weights['persona'] / (original_weights['persona'] + original_weights['llm'])
-        llm_share = 1 - persona_share
-
-        adjusted_weights = {
-            'image': 0.0,
-            'persona': 0.75,
-            'llm': 0.25
+    # 2. Check for dominant component (>90%)
+    max_score = max(img_score, persona_score, llm_score)
+    if max_score >= 0.9:
+        return {
+            "image_similarity": f"{img_score:.4f}",
+            "persona_similarity": f"{persona_score:.4f}",
+            "llm_validation": f"{llm_score:.4f}",
+            "llm_reason": llm_reason,
+            "overall_confidence": f"{max_score:.4f} (dominant component)"
         }
+
+    # 3. Adaptive weighting logic
+    original_weights = {'image': 0.6, 'persona': 0.25, 'llm': 0.15}
+    
+    if img_score < 5e-4:
+        print(f"Image similarity too low ({img_score:.4f}) - redistributing weight.")
+        adjusted_weights = {'image': 0.0, 'persona': 0.75, 'llm': 0.25}
     else:
         adjusted_weights = original_weights
 
-    # 4. Prepare component data with new weights
-    component_data = [
+    # 4. Calculate weighted average
+    components = [
         ('image', img_score, adjusted_weights['image']),
         ('persona', persona_score, adjusted_weights['persona']),
         ('llm', llm_score, adjusted_weights['llm'])
     ]
-
-    # 5. Weighted confidence calculation
-    total_weight = sum(w for _, _, w in component_data)
-    weighted_sum = sum(score * weight for _, score, weight in component_data)
-    score_status = {name: f"{score:.4f}" for name, score, _ in component_data}
-
-    # 6. Final result
+    
+    total_weight = sum(w for _, _, w in components)
+    weighted_sum = sum(score * weight for _, score, weight in components)
     overall = weighted_sum / total_weight if total_weight > 0 else 0.0
 
     return {
-        "image_similarity": score_status['image'],
-        "persona_similarity": score_status['persona'],
-        "llm_validation": score_status['llm'],
+        "image_similarity": f"{img_score:.4f}",
+        "persona_similarity": f"{persona_score:.4f}",
+        "llm_validation": f"{llm_score:.4f}",
         "llm_reason": llm_reason,
         "overall_confidence": f"{overall:.4f} (using {total_weight:.1f}/1.0 weight)"
     }
