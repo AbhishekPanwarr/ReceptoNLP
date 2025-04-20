@@ -13,10 +13,11 @@ null = None
 def find_best_linkedin_match(persona: dict):
     search_persona = enrich_profile_json(llm, persona)
     final_persona = update_intro_with_search(search_persona)
+    print(f"Final persona which we'll be used for Confidence Score Evaluation: \n{final_persona}")
     google_json_urls = search_profiles_from_json(search_persona, max_results=4)
     tavliy_urls = find_linkedin_profiles_by_tavily(search_persona)
     linkedin_urls = list(set(tavliy_urls + google_json_urls))
-
+    print(f"Total {len(linkedin_urls)} urls were found by Google Json({len(google_json_urls)}) + Tavily ({len(tavliy_urls)})")
     nth_personas = get_profiles_details(linkedin_urls)
     confidence_scores = []
     
@@ -34,10 +35,12 @@ def find_best_linkedin_match(persona: dict):
         best_confidence = conf_values[max_index]
         return {
             "linkedin_url": best_match_url,
-            "confidence_score": best_confidence
+            "confidence_score": confidence_scores[max_index]
         }
     else:
         return {
             "linkedin_url": None,
             "confidence_score": 0.0
         }
+
+null=None

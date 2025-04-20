@@ -23,4 +23,4 @@ if __name__ == '__main__':
     public_url = ngrok.connect(5000)
     print(f"Public ngrok URL: {public_url}/persona")
 
-    app.run(port=5000)
+    app.run(port=5000, debug=True)

@@ -103,7 +103,7 @@ def find_linkedin_profiles_by_tavily(profile_json: dict) -> list:
         results_name = tavily.run(query_name, num_results=3)
         if results_name and isinstance(results_name, list):
             for result in results_name:
-                if 'linkedin.com' in result.get('url', '') and 'company' not in result.get('url', ''):
+                if 'linkedin.com/in' in result.get('url', '') and 'company' not in result.get('url', ''):
                     linkedin_links.append(result.get('url'))
 
     # Search 2: Query with name + each company name
@@ -113,7 +113,7 @@ def find_linkedin_profiles_by_tavily(profile_json: dict) -> list:
             results_name_company = tavily.run(query_name_company, num_results=3)
             if results_name_company and isinstance(results_name_company, list):
                 for result in results_name_company:
-                    if 'linkedin.com' in result.get('url', '') and 'company' not in result.get('url', ''):
+                    if 'linkedin.com/in' in result.get('url', '') and 'company' not in result.get('url', ''):
                         linkedin_links.append(result.get('url'))
 
     # Search 3: Query with name + full social profile URL
@@ -123,7 +123,7 @@ def find_linkedin_profiles_by_tavily(profile_json: dict) -> list:
             results_social_url = tavily.run(query_social_url, num_results=3)
             if results_social_url and isinstance(results_social_url, list):
                 for result in results_social_url:
-                    if 'linkedin.com' in result.get('url', '') and 'company' not in result.get('url', ''):
+                    if 'linkedin.com/in' in result.get('url', '') and 'company' not in result.get('url', ''):
                         linkedin_links.append(result.get('url'))
 
     return linkedin_links

@@ -37,7 +37,7 @@ def search_profiles_from_json(profile_json: Dict[str, Any], max_results: int = 1
         print("Error: Name is required for searching")
         return []
     og_keys = profile_json.get('original_keys') or None
-    timezone = og_keys['timezone']
+    timezone = og_keys.get("timezone", '')
 
     company_names = profile_json.get('company_names', [])
     if company_names:
