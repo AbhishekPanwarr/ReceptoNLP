@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from sklearn.metrics.pairwise import cosine_similarity
 from PIL import Image, UnidentifiedImageError
 import requests
@@ -15,6 +16,10 @@ from langchain_openai import AzureChatOpenAI  # Add this import
 
 # ----------------- IMAGE SIMILARITY -----------------
 
+import requests
+from PIL import Image, UnidentifiedImageError
+from io import BytesIO
+
 class VGG16ImageComparer:
     def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -30,37 +35,60 @@ class VGG16ImageComparer:
         ])
         self.cache = {}
 
-    def download_image(self, url):
-        """Generalized image downloader for any URL"""
-        if not url or not isinstance(url, str):
-            return None
-            
-        if url in self.cache:
-            return self.cache[url]
+    import os
 
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
+    def download_image(self, url, save_as="img"):
+            """Download image from a URL (supports Google Drive), detect format, save with proper extension."""
+            if not url or not isinstance(url, str):
+                print(f"Invalid URL: {url}")
+                return None
 
-        try:
-            # Handle Google Drive links
-            if 'drive.google.com' in url and '/file/d/' in url:
-                file_id = url.split('/d/')[1].split('/')[0]
-                url = f'https://drive.google.com/uc?id={file_id}'
+            # Return cached image if already downloaded
+            if url in self.cache:
+                print(f"Using cached image for URL: {url}")
+                return self.cache[url]
 
-            response = requests.get(url, headers=headers, timeout=20, stream=True)
-            response.raise_for_status()
-            
-            # Attempt to open image regardless of content-type
-            image_data = BytesIO(response.content)
-            img = Image.open(image_data).convert('RGB')
-            self.cache[url] = img
-            return img
+            headers = {
+                'User-Agent': 'Mozilla/5.0'
+            }
 
-        except Exception as e:
-            print(f"Error downloading image from {url}: {str(e)[:200]}")
+            try:
+                # Handle Google Drive shared links
+                if 'drive.google.com' in url and '/file/d/' in url:
+                    file_id = url.split('/d/')[1].split('/')[0]
+                    url = f'https://drive.google.com/uc?id={file_id}'
+
+                response = requests.get(url, headers=headers, timeout=20, stream=True)
+                response.raise_for_status()
+
+                image_data = BytesIO(response.content)
+                img = Image.open(image_data).convert('RGB')
+
+                # Detect format and define file extension
+                img_format = img.format.lower() if img.format else 'png'
+                extension = 'jpg' if img_format == 'jpeg' else img_format
+
+                # Save image with proper extension
+                os.makedirs("downloaded_images", exist_ok=True)
+                filename = f"downloaded_images/{save_as}.{extension}"
+                img.save(filename)
+                print(f"Saved image to: {filename}")
+
+                # Cache the image
+                self.cache[url] = img
+                return img
+
+            except requests.exceptions.RequestException as req_error:
+                print(f"Request error: {str(req_error)}")
+            except UnidentifiedImageError as img_error:
+                print(f"Unrecognized image: {str(img_error)}")
+            except Exception as e:
+                print(f"Download failed: {str(e)}")
+
             self.cache[url] = None
             return None
+
+
 
     def get_features(self, img):
         if img is None: 
@@ -76,49 +104,37 @@ class VGG16ImageComparer:
             return None
 
     def similarity(self, url1, url2):
-        if not url1 or not url2: 
+        if not url1 or not url2:
             return 0.0
-            
-        # Direct URL match short-circuit
-        if url1 == url2: 
+
+        if url1 == url2:
             return 1.0
 
-        img1 = self.download_image(url1)
-        img2 = self.download_image(url2)
-        
+        # Download and load images as PIL.Image
+        img1 = self.download_image(url1, save_as="img1")
+        img2 = self.download_image(url2, save_as="img2")
+
         if img1 is None or img2 is None:
             return 0.0
 
         f1 = self.get_features(img1)
         f2 = self.get_features(img2)
-        
+
         if f1 is None or f2 is None:
             return 0.0
 
-        try:
-            # Ensure proper array shapes for cosine similarity
-            f1 = f1.reshape(1, -1)
-            f2 = f2.reshape(1, -1)
-            sim = cosine_similarity(f1, f2)[0][0]
-            return max(0.0, min(1.0, sim))  # Clamp between 0-1
-        except Exception as e:
-            print(f"Similarity calculation error: {str(e)[:200]}")
-            return 0.0
+        f1 = f1.reshape(1, -1)
+        f2 = f2.reshape(1, -1)
+        sim = cosine_similarity(f1, f2)[0][0]
+
+        return max(0.0, min(1.0, sim))
+
+
 
 # ----------------- TEXT EMBEDDING SIMILARITY -----------------
-
-def profile_text(profile):
-    """Improved text extraction with fallbacks"""
-    intro = profile.get('intro', '')
-    industry = profile.get('company_industry', '')
-    name = profile.get('name', '')
-    
-    # Combine relevant fields with priority
-    return f"{name} {intro} {industry}".strip()
-
 def persona_similarity(profile1, profile2, embedder):
-    text1 = profile_text(profile1)
-    text2 = profile_text(profile2)
+    text1 = profile1.get("original_keys").get("intro")
+    text2 = profile2.get("summary", "")
     
     if not text1 or not text2: 
         return 0.0
@@ -144,7 +160,7 @@ def llm_validation(profile1, profile2, llm_client: AzureChatOpenAI):
     validation_prompt = f"""
     You are an expert at verifying if two professional profiles belong to the same person.
     Analyze the following profiles and give a score between 0 and 1 (1=definitely same, 0=definitely different).
-    Consider job history, skills, education, and social links and most importantly timezone of the person.
+    Consider job history, skills, education, social links, any other detail present in the personas and most importantly match timezone, company industry and size from the personas.
     Return JSON: {{"score": float, "reason": string}}
 
     Profile 1:
@@ -196,38 +212,45 @@ def get_embedding(text: str) -> np.ndarray:
 
 # ----------------- MAIN COMPARISON FUNCTION -----------------
 def confidence_score(profile1, profile2, embedder, image_comparer, llm_validation, 
-                    llm_client: AzureChatOpenAI, threshold=0.1):
-    """Calculate confidence score excluding components below threshold"""
-    
+                     llm_client: AzureChatOpenAI):
+    """Calculate confidence score with adaptive weighting when image similarity is too low"""
+
     # 1. Calculate raw scores
-    img_score = image_comparer.similarity(profile1.get("image"), profile2.get("image"))
+    og_keys = profile1.get("original_keys")
+    img_score = image_comparer.similarity(og_keys.get("image"), profile2.get("image"))
     persona_score = persona_similarity(profile1, profile2, embedder)
     llm_score, llm_reason = llm_validation(profile1, profile2, llm_client)
 
-    # 2. Determine valid components and their weights
-    valid_components = []
-    weights = {'image': 0.6, 'persona': 0.25, 'llm': 0.15}
-    
+    # 2. Fixed component weights
+    original_weights = {'image': 0.6, 'persona': 0.25, 'llm': 0.15}
+
+    # 3. Adjust weights if image similarity is too low
+    if img_score < 5e-4:
+        print(f"Image similarity too low ({img_score:.4f}) — redistributing weight.")
+        persona_share = original_weights['persona'] / (original_weights['persona'] + original_weights['llm'])
+        llm_share = 1 - persona_share
+
+        adjusted_weights = {
+            'image': 0.0,
+            'persona': 0.75,
+            'llm': 0.25
+        }
+    else:
+        adjusted_weights = original_weights
+
+    # 4. Prepare component data with new weights
     component_data = [
-        ('image', img_score, weights['image']),
-        ('persona', persona_score, weights['persona']),
-        ('llm', llm_score, weights['llm'])
+        ('image', img_score, adjusted_weights['image']),
+        ('persona', persona_score, adjusted_weights['persona']),
+        ('llm', llm_score, adjusted_weights['llm'])
     ]
 
-    # 3. Filter valid components and calculate weighted sum
-    total_weight = 0.0
-    weighted_sum = 0.0
-    score_status = {}
-    
-    for name, score, weight in component_data:
-        if score >= threshold:
-            weighted_sum += score * weight
-            total_weight += weight
-            score_status[name] = f"{score:.4f}"
-        else:
-            score_status[name] = f"not defined (score < {threshold})"
+    # 5. Weighted confidence calculation
+    total_weight = sum(w for _, _, w in component_data)
+    weighted_sum = sum(score * weight for _, score, weight in component_data)
+    score_status = {name: f"{score:.4f}" for name, score, _ in component_data}
 
-    # 4. Calculate overall confidence
+    # 6. Final result
     overall = weighted_sum / total_weight if total_weight > 0 else 0.0
 
     return {
@@ -237,4 +260,3 @@ def confidence_score(profile1, profile2, embedder, image_comparer, llm_validatio
         "llm_reason": llm_reason,
         "overall_confidence": f"{overall:.4f} (using {total_weight:.1f}/1.0 weight)"
     }
-

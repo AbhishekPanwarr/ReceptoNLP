@@ -75,16 +75,14 @@ def search_profiles_from_json(profile_json: Dict[str, Any], max_results: int = 1
     # Perform the search
     results = finder.search_profiles(
         name=name,
-        company=company_names,
-        max_results=max_results
+        # company=company_names,
+        max_results=max_results,
     )
     
     if results:
-        print(f"\nFound {len(results)} LinkedIn profile URLs:")
-        for i, url in enumerate(results, 2):
-            print(f"  {i}. {url}")
+        print(f"\nFound {len(results)} LinkedIn profile URLs from Google Json Search.")
     else:
-        print("No LinkedIn profile URLs found matching the criteria.")
+        print("No LinkedIn profile URLs found matching the criteria from Google Json Search.")
     
     return results
 
