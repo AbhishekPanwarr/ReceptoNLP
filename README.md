@@ -105,7 +105,7 @@ Confidence: 69.5200
 ['https://ca.linkedin.com/in/edoty']
 ```
 
-The final output will be a list of the highest matching LinkedIn profile URLs for your personas.
+The final output will be a list of the highest matching LinkedIn profile URLs for your personas along with their confidence scores.
 
 ## License
 
